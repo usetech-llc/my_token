@@ -1,7 +1,7 @@
 pragma solidity 0.4.25;
 
 // This contract is deployed in Rinkeby Network at this address:
-// 0xf98864a5Cc043ABfF59BeE7fFE792bBaf960051f
+// 0x7a2F741383dD1067720863Ca3F30d62A24aA5313
 
 // WARRANTIES OR CONDITIONS
 // Unless required by applicable law or agreed to in writing, software
@@ -14,6 +14,9 @@ pragma solidity 0.4.25;
 contract SmartBank {
     /* Array of all user balances */
     mapping (address => uint256) private _balances;
+
+    /* Array of last withdrawal blocks per user */
+    mapping (address => uint256) private _withdrawBlocks;
 
     /**
     *  Get user balance
@@ -41,7 +44,17 @@ contract SmartBank {
     {
         require(_balances[msg.sender] >= value, "Insufficient balance for withdrawal");
 
+        // Detect a megauser: User with >= 1000 Eth
+        if (_balances[msg.sender] < 1000000000000000000000)
+            require(value <= 100000000000000, "Only megausers can withdraw all");
+
+        // Make sure users don't withdraw too frequently
+        // Only one time per 6 hours ia allowed
+        uint256 lastWithdraw = _withdrawBlocks[msg.sender];
+        require(block.number - lastWithdraw > 6*266, "Withdrawing too frequently, please wait");
+
         require(msg.sender.send(value));
+        _withdrawBlocks[msg.sender] = block.number;
         _balances[msg.sender] -= value;
         return true;
     }
